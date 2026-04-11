@@ -17,27 +17,27 @@ library(phangorn)
 mtdna <- read.phyDat('../../data/mtDNA.fasta', format = 'fasta')
 glance(mtdna)
 ```
+
 ### Note
+
 Sería sensato reducir el conjunto de datos. ¿Qué secuencias eliminarías? Si quieres, puedes intentarlo con la función subset().
 
-Esperaremos a construir el árbol para decidir qué secuencias eliminaríamos.Las secuencias que nos podría interesar eliminar podrían ser aquellas puntas que tengan edades con una amplitud de edad muy grande. 
+Esperaremos a construir el árbol para decidir qué secuencias eliminaríamos.Las secuencias que nos podría interesar eliminar podrían ser aquellas puntas que tengan edades con una amplitud de edad muy grande.
 
 ## **Escoger el modelo de evolución**
+
 Evaluar los 92 modelos posibles puede llevar un rato…
 
 ```{r}
 modelos <- modelTest(mtdna, control = pml.control(trace = 0),
                      multicore = TRUE, mc.cores = 2)
 ```
-En la tabla de modelos podemos ordenar de mayor a menor utilizando el comando:
-  >modelos[order(modelos$BIC),]
-  
-Me describe el modelo, pudiendo sacar toda la informacion
-> fit <- as.pml(modelos,'GTR+G(4)+I')
-> fit
 
-Criterio para escoger el mejor modelo:
-> fit <- as.pml(modelos,'BIC')
+En la tabla de modelos podemos ordenar de mayor a menor utilizando el comando: \>modelos\[order(modelos\$BIC),\]
+
+Me describe el modelo, pudiendo sacar toda la informacion \> fit \<- as.pml(modelos,'GTR+G(4)+I') \> fit
+
+Criterio para escoger el mejor modelo: \> fit \<- as.pml(modelos,'BIC')
 
 Cuando trabajamos en un bloque de R podemos hacer lo siguiente para que las figuras se vean más grandes que 5x5:
 
@@ -66,19 +66,20 @@ plot(mt_upgma)
 axisPhylo()
 ```
 
-
 ### Note
+
 Cuando la función plot() se aplica a un objeto de clase phylo, en realidad se ejecuta la función plot.phylo(). Si quieres explorar las opciones de representación gráfica de árboles con plot(), consulta help(plot.phylo).
 
 ¿Por qué usamos midpoint() al representar gráficamente el árbol de NJ?
 
 ## Podemos enraizar el árbol
+
 ```{r}
 enraizado <- root(mt_nj, 'G.gorilla_D38114')
 ```
 
-Podemos observar el orden de las puntas de las ramas en función de la edad, de manera que los humanos actuales sería 0. 
-## Máxima verosimilitud
+Podemos observar el orden de las puntas de las ramas en función de la edad, de manera que los humanos actuales sería 0. \## Máxima verosimilitud
+
 ```{r}
 veros <- pml_bb(mtdna, model = 'GTR+G(4)+I',
                 control = pml.control(trace = 0))
@@ -96,19 +97,18 @@ homo <- extract.clade(mt_ml, 62)
 plot(midpoint(homo))
 ```
 
-estimate mu(): nos permite conocer si hay una tasa de evolución constante (reloj molecular)
-    Si introducimos en el paréntesis "dates" apareceran las edades. 
-    
-Trata de estimar la frecuencua de mutación mirando aquello que falta. Si en lugar de tip dates usamos note dates en algunas de estas funciones podemos dar las edades en años. 
+estimate mu(): nos permite conocer si hay una tasa de evolución constante (reloj molecular) Si introducimos en el paréntesis "dates" apareceran las edades.
 
-Dificultad: cuando queremos usar un vector de edades de los nodos tenemos que saber el orden en el que aparecen. 
+Trata de estimar la frecuencua de mutación mirando aquello que falta. Si en lugar de tip dates usamos note dates en algunas de estas funciones podemos dar las edades en años.
 
-Tip dating obliga a que el árbol sea ultramétrico y que respete las edades. Las secuencias arcaicas deberían quedar más hacia el interior. 
+Dificultad: cuando queremos usar un vector de edades de los nodos tenemos que saber el orden en el que aparecen.
 
-A nosotros lo que nos interesa es la relación entre humanos y chimpancés, el resto de puntas podemos añadirle valores asignados. 
+Tip dating obliga a que el árbol sea ultramétrico y que respete las edades. Las secuencias arcaicas deberían quedar más hacia el interior.
 
+A nosotros lo que nos interesa es la relación entre humanos y chimpancés, el resto de puntas podemos añadirle valores asignados.
 
 ## Con datación de puntas (tip dating)
+
 Sabiendo que algunas secuencias dejaron de evolucionar hace tiempo (mira el apéndice), podemos intentar calibrar las tasas de sustitución con esta información. Para ello necesitamos un vector de fechas con nombres, donde cada fecha lleva el nombre de la secuencia a la que corresponde. Podemos dar el valor 0 a todas las secuencias contemporáneas y valores negativos, en años, a las secuencias arcaicas.
 
 ```{r}
@@ -121,6 +121,7 @@ fechas <- c(0, 0, 0, 0, 0, 0, 0, 0, 0,
               0, 0, 0, 0, 0, 0, 0, 0, 0)
 setNames(fechas, names(mtdna))
 ```
+
 ```{r}
 fit_td <- pml_bb(mtdna, model = 'GTR+G(4)+I', method = 'tipdated',
                  tree = enraizado,
@@ -132,8 +133,6 @@ fit_td <- pml_bb(mtdna, model = 'GTR+G(4)+I', method = 'tipdated',
 plot(fit_td)
 ```
 
-Podemos hacer estimaciones de la tasa de sustitición del nucleótido por año (ya que le hemos dado la edad de las puntas en años) con el siguiente comando:
- > estimate.mu(mt_ml, fechas, p.tol = 0.05)
- [1] 2.188067e-08
+Podemos hacer estimaciones de la tasa de sustitición del nucleótido por año (ya que le hemos dado la edad de las puntas en años) con el siguiente comando: \> estimate.mu(mt_ml, fechas, p.tol = 0.05) \[1\] 2.188067e-08
 
-Los nodos con puntuación mayor a 42(que es el número de puntas del árbol) serán ramas internas. Si nos fijamos hay un nodo 43 que no existe ya que el árbol no está enraizado. 
+Los nodos con puntuación mayor a 42(que es el número de puntas del árbol) serán ramas internas. Si nos fijamos hay un nodo 43 que no existe ya que el árbol no está enraizado.
