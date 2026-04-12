@@ -1,0 +1,188 @@
+---
+title: "Práctica 8: BLAST"
+format:
+   html:
+      embed-resources: true
+---
+
+# Ejercicio 1
+Enmascarar e indexar los proteomas
+
+```{bash}
+if [ ! -e ../../Data/buchnera.paa ]; then
+   # Creamos un archivo para enmascarar zonas de baja complejidad:
+   if [ ! -e buchnera_seg.asnb ]; then
+      segmasker -in ../../data/buchnera.fasta \
+                -infmt fasta \
+                -parse_seqids \
+                -outfmt maskinfo_asn1_bin \
+                -out ../../data/buchnera_seg.asnb
+   fi
+   # Y indexamos el archivo FASTA para BLAST:
+   makeblastdb  -in ../../data/buchnera.fasta \
+                -input_type fasta \
+                -dbtype prot \
+                -parse_seqids \
+                -mask_data ../../data/buchnera_seg.asnb \
+                -out ../../data/buchnera \
+                -title "Proteoma de Buchnera"
+fi
+```
+
+fi
+## Hay que repetir todo esto para Blochmannia.
+
+```{bash}
+if [ ! -e ../../Data/buchnera.paa ]; then
+   # Creamos un archivo para enmascarar zonas de baja complejidad:
+   if [ ! -e buchnera_seg.asnb ]; then
+      segmasker -in ../../data/blochmannia.fasta \
+                -infmt fasta \
+                -parse_seqids \
+                -outfmt maskinfo_asn1_bin \
+                -out ../../Data/blochmannia_seg.asnb
+   fi
+   # Y indexamos el archivo FASTA para BLAST:
+   makeblastdb  -in ../../data/blochmannia.fasta \
+                -input_type fasta \
+                -dbtype prot \
+                -parse_seqids \
+                -mask_data ../../Data/blochmannia_seg.asnb \
+                -out ../../Data/blochmannia \
+                -title "Proteoma de Buchnera"
+fi
+```
+## Realizar las búsquedas de BLASTP
+El objetivo es encontrar la proteína de Blochmannia ocreatus que más se parece a cada una de las proteínas de Buchnera aphidicola, y viceversa. Entonces, seleccionaremos las parejas de proteínas que sean recíprocamente las más similares una de otra, por ser más probablemente ortólogas. Otras relaciones de semejanza no recíprocas pueden ser debidas a la paralogía.
+
+```{bash}
+blastp -query ../../data/buchnera.fasta \
+       -db ../../data/blochmannia \
+       -out buc2blo.txt \
+       -outfmt '6 qseqid sseqid qlen slen length evalue bitscore' \
+       -evalue 0.001 \
+       -max_target_seqs 1
+```
+```{bash}
+blastp -query ../../data/blochmannia.fasta \
+       -db ../../data/buchnera \
+       -out blo2buc.txt \
+       -outfmt '6 qseqid sseqid qlen slen length evalue bitscore' \
+       -evalue 0.001 \
+       -max_target_seqs 1
+```
+
+El número  indica que sólo queremos que empareje cada proteína con 1 proteína de la otra especie y no más.
+
+## Comparación de resultados
+
+```{r}
+buc2blo <- read.table(
+   'buc2blo.txt',
+   col.names = c('query', 'subject', 'qlen', 'slen',
+                 'length', 'evalue', 'bitscore')
+)
+blo2buc <- read.table(
+   'blo2buc.txt',
+   col.names = c('query', 'subject', 'qlen', 'slen',
+                 'length', 'evalue', 'bitscore')
+)
+```
+
+### Nota
+Echa un vistazo a estas tablas de resultados. ¿Sabrías identificar las parejas de proteínas que son recíprocamente la que más se parece una a la otra? Sí. Interpretamos que aquellas proteínas que se encuentren en la misma fila serán aquellas que se parezcan más entre sí, siendo probablemente ortólogas. Para saber si realmente lo son podemos crear otro apartado en la tabla que se llame "reverse" (p.e) y que busque los elementos del primer argumento en el segundo argumento. Por ejemplo buc2blo, lo que se hace es coger su query con el subject de blo2bluc (con la función match, que fusiona ambas tablas.) Con los id de buc que coinciden con bloc miro si las búsquedas coinciden. 
+
+```{r}
+buc2blo$reverse <- blo2buc[
+   match(buc2blo$subject, blo2buc$query),
+   'subject'
+]
+coincidencias <- buc2blo[
+   buc2blo$query == buc2blo$reverse,
+   c('query', 'subject')
+]
+```
+
+Después puede comprobarse, en caso de que las proteínas coinciden, si los valores de e son bajos, si hay muchos gaps, si la longitud de subject y query son muy diferentes... Esto puede incluso representarse con un histograma p.e.
+
+# Ejercicio 2
+## Datos del segundo ejercicio
+```{bash}
+# Descargamos primero la signatura MD5 y después la base de datos comprimida:
+wget https://ftp.ncbi.nlm.nih.gov/blast/db/swissprot.tar.gz.md5
+wget https://ftp.ncbi.nlm.nih.gov/blast/db/swissprot.tar.gz
+# Comprobamos que la signatura (o "suma") coincide:
+md5sum -c swissprot.tar.gz.md5
+# Descomprimimos la base de datos:
+tar -xzvf swissprot.tar.gz
+# Y borramos los archivos que ya no hacen falta:
+rm swissprot.tar.gz swissprot.tar.gz.md5
+```
+
+
+El PSI-BLAST nos permite identificar semejanzas sutiles, como las que existen entre miembros alejados de una superfamilia proteica. Para comprobarlo vamos a realizar una búsqueda a partir de cualquiera de las proteínas siguientes: Q9CC91, P39615, B1AJI8, P47343, Q5UPT2, Q6UDG6, A1AFY9, O59825 y P30314. Todas ellas están en Swissprot y pertenecen a una misma superfamilia. Sin embargo, un simple BLASTP con cualquiera de ellas no encuentra ninguna de las otras1. Comprobemos si con un PSI-BLAST lo conseguimos. A continuación lo intento a partir de P39615. 
+
+```{bash}
+# Como Swissprot debería estar ya descargada en `../../data`, podemos sacar
+# de ahí la secuencia de la proteína escogida:
+blastdbcmd -db ../../data/swissprot -entry P39615 -out P39615.fa
+
+# Y ahora la usamos como query en psi-blast:
+psiblast -db ../../data/swissprot \
+         -query P39615.fa \
+         -out P39615.blastout.txt \
+         -evalue 0.1 \
+         -outfmt 7 \
+         -inclusion_ethresh 0.001 \
+         -num_iterations 7 \
+         -matrix BLOSUM62
+```
+
+Repite los pasos usando otra proteína de la lista como query y compara los resultados.
+
+```{bash}
+# Como Swissprot debería estar ya descargada en `../../data`, podemos sacar
+# de ahí la secuencia de la proteína escogida:
+for proteina in Q9CC91 P39615 B1AJI8 P47343 Q5UPT2 Q6UDG6 A1AFY9 O59825 P30314;
+do 
+blastdbcmd -db ../../data/swissprot -entry $proteina -out $proteina.fa
+
+# Y ahora la usamos como query en psi-blast:
+psiblast -db ../../data/swissprot \
+         -query O59825.fa \
+         -out O59825.blastout.txt \
+         -evalue 0.1 \
+         -outfmt 7 \
+         -inclusion_ethresh 0.001 \
+         -num_iterations 7 \
+         -matrix BLOSUM62
+done
+```
+
+Pedimos como mínimo 7 iteraciones a menos que converja antes. El formato número 7 es parecido al 6 pero con comentarios introducidos con almohadillas. La ordenación comienza por los valores de e más bajos y aumentan hasta volver a disminuir. Aquí es donde comienzan los resultados de la 2a iteración. En la 3a iteración converje al no encontrar niguna diferencia con la segunda iteración. Como en el formato 7 aparece el comentario de que converge la iteración sin almohadilla, R tratará de leerlo y uede dar errores. Por ello, es más cómodo utilizar el formato 6 sin títulos.  
+
+### Nota
+Consulta la ayuda de psiblast y asegúrate de entender para qué sirven los argumentos que hemos usado. Por ejemplo, ¿cuál es la diferencia entre -evalue y -inclusion_ethresh?¿Cómo harías que la búsqueda fuera más sensible todavía?
+
+ -evalue <Real>
+   Expectation value (E) threshold for saving hits
+   Default = `10'
+   
+ -inclusion_ethresh <Real>
+   E-value inclusion threshold for pairwise alignments
+   Default = `0.002'
+   
+# Ejercicio 3: Origen de la contaminación en un archivo FASTQ
+El archivo ../../data/contaminacion.fa.gz contiene 33174 lecturas procedentes de un experimento de secuenciación del insecto Aphis aurantii, con Ion Torrent. (SRR13258790). Concretamente son las lecturas que no han podido mapearse al genoma de referencia (GCA_055615905) de este insecto. Hay dos motivos principales por los que muchos fragmentos no pueden mapearse al genoma de referencia: o bien el genoma de referencia es incompleto, o bien los fragmentos no pertenecen a esa especie. La secuenciación no distingue al individuo de interés de sus simbiontes, parásitos o presas. Los fragmentos de ADN secuenciados que no proceden del individuo diana se consideran contaminación. El objetivo de este ejercicio es determinar la procedencia de estos fragmentos mediante BLASTN remoto a la base de datos nr (no redundante). Lo que nos interesa es sólo el origen taxonómico de la secuencia más parecida a cada una de esas lecturas.
+
+## Selección aleatoria de 20 queries
+Si enviamos 33174 queries a los servidores del NCBI, o bien tardarán muchas horas en devolver los resultados o simplemente interrumpirán el servicio. Cada persona escogerá 20 secuencias al azar mediante las órdenes siguientes, y después compartiremos los resultados para tener una muestra más representativa.
+
+```{r}
+library('Biostrings')
+unmapped <- readDNAStringSet('../../data/contaminacion.fa.gz')
+n <- length(unmapped)
+muestra <- unmapped[sample(1:n, 20)]
+writeXStringSet(muestra, 'muestra.fa')
+```
+
