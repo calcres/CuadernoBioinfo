@@ -4,6 +4,7 @@ format:
    html:
      fig-width: 10
      fig-height: 10
+     embed-resources: true
 editor: visual
 ---
 
