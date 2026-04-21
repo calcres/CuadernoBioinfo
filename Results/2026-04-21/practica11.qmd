@@ -1,0 +1,85 @@
+---
+title: "Práctica 11"
+format: html
+editor: visual
+engine: knitr
+---
+
+# **Práctia 11. Anotación**
+
+## **Programas**
+
+Los programas que *no* utilizaremos (porque no están instalados y son difíciles de instalar son [RepeatModeler](https://github.com/Dfam-consortium/RepeatModeler) ([Flynn et al. 2020](https://aulavirtual.uv.es/pluginfile.php/6032508/mod_resource/content/2/guio-es.html#ref-Flynn2020)), [RepeatMasker](https://www.repeatmasker.org/), y [GALBA](https://github.com/Gaius-Augustus/GALBA) ([Bruna et al. 2023](https://aulavirtual.uv.es/pluginfile.php/6032508/mod_resource/content/2/guio-es.html#ref-Bruna2023)). Cada uno de ellos, a su vez, utiliza otros.
+
+## Ejercicio 1
+
+```{bash}
+if [ ! -e proteinas.fasta ]; then
+cat ../2026-04-21/uniprotkb_proteome_UP000006548_AND_prot_2026_04_21.fasta | gawk '(/^>/){split($1, A, /\|/); print ">" A[2]}(/^[^>]/){print $0}'
+fi
+```
+
+```{bash}
+if [ ! -e proteinas.fasta ]; then
+gawk '(/^>/){split($1, A, /\|/); print ">" A[2]}(/^[^>]/){print $0}' ../2026-04-21/uniprotkb_proteome_UP000006548_AND_prot_2026_04_21.fasta > proteinas.fasta
+fi
+```
+
+## Ejercicio 2
+
+1.  ¿Cuántas familias de elementos transponibles se han encontrado? Partimos del archivo At4-families del Repeat Modeler en las que suponemos que cada una de las familias comienza por \> y nos indica las secuencias que se han encontrado de ese elemento trasponible.
+
+```{bash}
+grep -c "^>" RepeatModelerResults/At4-families.fa
+```
+
+¿Cuánto duró la ejecución del programa? Dentro del archivo run.log vemos que el Program Time: 01:02:16 (hh:mm:ss). Suponemos que aquí se suma el tiempo total de cada round. Tras 3 rondas.
+
+¿Cuál dirías que es el archivo de salida más importante? Yo diría que es el At4-families.fa sería el archivo más importante. Si lo que me interesa es la anotación de secuencias es en este archivo donde aparecen.
+
+## Ejercicio 3
+
+1.  Instala el programa bedtools siguiendo las instrucciones oportunas para tu sistema en la página oficial.
+
+mv bedtools.static bedtools chmod u+x bedtools
+
+2.  Utiliza el ensamblaje original como archivo FASTA de entrada y el archivo GFF que ha producido RepetaMasker como coordenadas de las regiones a enmascarar. Lee el manual de bedtools maskfasta en este enlace y genera el ensamblaje con máscara suave llamado At4.soft.fa.
+
+```{bash}
+~/bin/bedtools maskfasta -fi ../2026-04-16/asm1/At4.fa -bed RepeatMaskerResults/RM01/At4.fa.out.gff -fo At4.soft.fa
+```
+
+## Ejercicio 4
+
+```{bash}
+#| eval: false
+export TSEBRA_PATH=/home/calcres/bin/TSEBRA/bin/
+export MINIPROTHINT_PATH=/home/calcres/bin/miniprothint/
+
+galba.pl --species="Arabidopsis thaliana" \
+         --genome=At4.soft.fa \
+         --prot_seq=proteinas.fasta
+```
+
+## Ejercicio 5
+
+Galba utiliza el miniprot para mapear las secuencias que le hemos dado, las de Uniprot, con el ensamblaje. Después coge el programa Augustus que está entrenado para identificar los genes a partir de los mejores alinemientos. A partir de aquí, refina el resto.
+
+-   Tenemos un archivo llamado prot_seq_all.fa que suponemos que indica todas las proteínas predichas por GALBA a partir del genoma que se está anotando.
+-   En what-to-cite encontramos la forma en la que citar el programa utilizado.
+
+## Notas
+
+**RepeatModeler/Masker** realiza una base de datos Blast para buscar las secuneucas que le interese, de ahí que aparezcan archivos en la carpeta como mod.log, stk (formato estocolmo), families.fa (secuencias consenso de cada familia)...etc Cuando nos metemos en este archivo vemos LTR gypsy (elementro trasponible del que se trata) que incluye todas las secuencias de la familia (98) y después la secuencia consenso. De cara al futuro, nos recomienda añadir gráficas sobre la distribución de tamaños de diferentes tipos como LTR Gypsy.
+
+El RepeatModeler no es necesario ejecutarlo, pero sí se hubiese ejecutado en caso de contar con una secuencia completamente desconocida. En nuestro caso, que trabajamos con A.thaliana podríamos haber utilizado el Masker directamente recurriendo a una base de datos (ya que los elementos trasponibles se conocen). Si vemos la secuencia del genoma, los elementos trasponibles aparecen como N.
+
+Al ejecutar el **Masker**, nos interesaba pedirle que generase un .gff de salida. Este nos indica las coordenadas de cada ejemplo de elemento trasponible.(gtf y gff son prácticamente sinónimos)
+
+**galba** es muy reciente pero sigue en lenguaje pearl (pl) prácticamente olvidado. Existen programas como galba2 (todavía más difícil de instalar), Singularity o Braker. Es importante que tengamos en cuenta, que al igual que con la predicción proteica, la IA haga mejor que estos programas la predicción de este tipo de secuencias en el genoma.
+
+galba podría haber utilizado datos de RNAseq y datos de proteínas de una especie próxima.
+
+En GALBA.log nos indica el entrnamiento de AUGUSTUS que es mejor realizar con info de la misma especie.
+
+GALBA.gtf nos indica primero el cóntigo y qué ha identificado Augustus en ese cóntigo: secuencia stop, UTR... Nos indica si la cadena es la complementaria o la codificante, exón, intrón, a qué gen pertenece...etc. Si nos fijamos nos da muchísima información del principio y fin de intrones y exones.
