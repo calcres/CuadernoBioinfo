@@ -1,0 +1,192 @@
+---
+title: "Práctica 12"
+format: html
+editor: visual
+engine: knitr
+---
+
+```{r}
+.libPaths("/home/calcres/R_lib")
+sessionInfo()
+```
+
+```{r}
+.libPaths(c("/home/calcres/R/x86_64-pc-linux-gnu-library/4.5", .libPaths()))
+library(DESeq2)
+```
+
+## Exploración de los datos
+
+```{r}
+muestras <- read.table('../../data/dme_elev_samples.tsv', header = TRUE)
+genex <- read.table('../../data/salmon.merged.gene_counts.tsv',
+                    header = TRUE)
+```
+
+### Ejercicio 1
+
+1.  Usa la función paste() para añadir una columna a muestras que contenga la población y la temperatura unidas por \_.
+
+```{r}
+muestras$pop_tem <- paste(muestras$population, muestras$temp, sep = "_")
+```
+
+```{r}
+head(muestras)
+```
+
+2.  ¿Cuál es el número total de lecturas por muestra? Lo que hacemos es sumar la columna de cada muestra, excluyendo las dos primeras columnas que indican el id y nombre del gen.
+
+```{r}
+colSums(genex[, -c(1,2)])
+```
+
+3.  ¿Los recuentos tienen distribuciones parecidas entre muestras? Quiero saber la distribución de los valores EN CADA MUESTRA.
+
+Si pudiese representar (ya que R no encuentra las funciones hist, density, boxplot, lines...) De representarlo veríamos que existen genes con mucha expresión y algunos pocos con mucha.
+
+```{r}
+#| eval: false
+rm(hist(genex[,3])
+```
+
+```{r}
+#| eval: false
+plot(density(genex[,3]),log('x'))
+```
+
+```{r}
+#| eval: false
+lines(density(genex[,4]))
+```
+
+4.  ¿Cuántos genes no se expresan en absoluto en ninguna de las muestras?
+
+Lo que hacemos con el siguiente comando es, contando con las columnas excepto 1 y 2,
+
+```{r}
+# Vamos a seleccionar todas las columnas, excepto las 2 primeras que no contienen información de lecturas. 
+datos_num <- genex[, -c(1, 2)]
+# Contamos todas las columnas que tienen un valor 0 para cada fila. Esto ocurre cuando la fila suma 0. 
+num_ceros <- rowSums(datos_num == 0)
+# Esto son genes que tienen 0 en todas las columnas. Lo que hacemos es sumar las filas con mismo número de 0 que muestras. 
+num_muestras <- ncol(datos_num)
+genes_no_expresados <- num_ceros == num_muestras
+#Sumamos todas las filas
+sum(genes_no_expresados)
+```
+
+Todo esto es RUIDO. A menor la expresión mayor es el ruido con el que estimamos las cosas.
+
+## Crear el objeto de clase DESeqDataSet
+
+Este es un objeto bastante sofisticado.
+
+```{r}
+suppressMessages(library('DESeq2'))
+all(names(genex)[3:14] == muestras$sample)
+```
+
+Esto es una comprobación, de hecho en R existe "stopifnot()" que sirve para abortar un análisis en caso de no cumplirse una condición. Aquí la condición es que los nombres de las filas en muestras deben ser iguales y estar en el mismo orden que las columnas en genex.TRUE nos indica que esto efectivamente se corresponde.
+
+En general, en R no es buena idea abusar de los nombres de las filas aunque sí tenemos la posibilidad de que los data frames tengan nombre. Para facilitar el trabajo al DeSeq tb asignamos el valor nulo. Las filas population y temp se convierten en factores (variables categóricas que solo admiten unos valores posibles). Los factores pueden tener los valores ordenados. Aquí, por ejemplo hemos establecido low como la primera aunque por orden alfabético, y de forma autónoma, high sería la primera.
+
+```{r}
+# Pasamos la columna "sample" a nombres de fila:
+row.names(muestras) <- muestras$sample
+# Eliminamos la columna "sample":
+muestras$sample <- NULL
+# Y convertimos "population" y "temp" en factores:
+muestras$population <- factor(muestras$population,
+                              levels = c('maine', 'panama'))
+muestras$temp       <- factor(muestras$temp,
+                              levels = c('low', 'high'))
+muestras
+```
+
+Los datos provienen de un programa que se pasa de listo y como no sabe si la lectura proviene de un gen u otro podemos ver números decimales y no enteros en número de lecturas. Para eso sirve "row". Como a genex le hemos eliminado las dos primeras columnas (no numéricas) por lo que puede ser transformada en una matriz de números enteros.
+
+```{r}
+row.names(genex) <- genex$gene_name
+genex$gene_name <- NULL
+genex$gene_id   <- NULL
+genex <- round(as.matrix(genex))
+```
+
+Le damos el recuento de lecturas que mapea sobre cada gen (countData). A Deseq lo único que le hace falta es que cada fila y cada columna sea coindente ya que el programa NO VA A MIRAR LOS NOMBRES (nos tenemos que asegurar previamente). La ondulación indica qué variables pueden afectar a la variable respuesta: población y temperatura.
+
+```{r}
+dds1 <- DESeqDataSetFromMatrix(
+   countData = genex,
+   colData = muestras,
+   design = ~ population + temp
+)
+dds1
+```
+
+## Pre-filtrado
+
+No es imprescindible ya que Deseq lo tendrá en cuenta después y seguramente lo aplique de forma más potente más adelante. Sin embargo, para no trabajar con archivos de tanto peso se hace. Tengo que usar counts para acceder a la matriz que es exactmanete idéntica a genex (matriz para construir los recuentos que hemos creado anteriormente). Le digo que únicamente mantenga las filas que no suman 0 a partir de un detector de verdaderos y falsos. De nuevo, sobre escribo la variable dds1.
+
+```{r}
+keep <- rowSums(counts(dds1)) > 0
+dds1 <- dds1[keep, ]
+```
+
+## Expresión diferencial
+
+Aquí realmente estamos haciendo muchas cosas. Veremos en teoría qué hace exactamente. Para ver los resultados hay que indicar el constraste que quieres hacer.
+
+```{r}
+dds1 <- DESeq(dds1)
+```
+
+Hay que ver la ayuda de results. ¿Queremos exp diferencial según la región o la Ta? ¿Cual es su interacción? Esto último él aun no sabe como se hace. También hay funciones que nos indican entre qué contrastes se puede elegir.
+
+```{r}
+res <- results(dds1)
+res
+```
+
+Para cada gen tenemos nivel de exp base, log en base 2 de la relación de high (numerador) respecto de low (denominador) (aquí la referencia es low por lo que vemos cuántas veces más está expresado en Ta alta que en la baja. Positivo indica exp en Ta alta y negativo indica más expresión a Ta baja). Vemos valor p, p ajustado (miles de test uno por cada gen).
+
+### Ejercicio 3
+
+1.  Mira la ayuda de results() y genera también la tabla de resultados para el contraste entre las dos regiones de procedencia de las moscas.
+
+```{r}
+res1 <- results(dds1, contrast=c("population","maine","panama"))
+res1
+```
+
+2.  Usa summary() sobre los resultados para ver el número de genes diferencialmente expresados entre cada par de condiciones.
+
+```{r}
+summary(res)
+```
+
+```{r}
+summary(res1)
+```
+
+3.  ¿Cuál es la tasa de falsos positivos (FDR)?
+
+```{r}
+metadata(res)$alpha
+```
+
+```{r}
+metadata(res1)$alpha
+```
+
+## Gráficas
+
+```{r}
+plotMA(res)
+```
+
+```{r}
+resShrink <- lfcShrink(dds1, coef = 'temp_high_vs_low',
+                       type = 'normal')
+plotMA(resShrink)
+```
