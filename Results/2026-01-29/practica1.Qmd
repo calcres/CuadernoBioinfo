@@ -23,9 +23,10 @@ Para la descarga automática de secuencias usaremos el programa `wget`. En siste
 operativos basados en Debian, seguramente se pueden instalar los cinco programas
 así (con privilegios administrativos):
 
-```
+```{bash}
 apt install emboss exonerate wget muscle
 ```
+
 
 # Objetivos
 1. Practicar los comandos básicos de Bash.
@@ -52,9 +53,7 @@ Amplía la tabla modificando el documento fuente.
 
 :::{.callout-note icon=false}
 ## Ejercicio 1
-Escoge un lugar adecuado en el árbol de directorios de tu ordenador para crear
-la carpeta que contendrá tu cuaderno de prácticas, en el cual incluirás tu propia
-versión de este primer guión. El *cuaderno* será una **carpeta** entera. Dale un
+Escoge un lugar adecuado en el árbol de directorios de tu ordenador para crear la carpeta que contendrá tu cuaderno de prácticas, en el cual incluirás tu propia versión de este primer guión. El *cuaderno* será una **carpeta** entera. Dale un
 nombre adecuado y genera esta estructura en su interior usando los comandos de
 Bash que has aprendido:
 
@@ -203,7 +202,7 @@ aumentar considerablemente su tamaño.
 
 library('htmltools')
 library('DECIPHER')
-PF00009 <- readAAStringSet('PF00009.afa')
+PF00009 <- readAAStringSet('PF00009.fa')
 BrowseSeqs(PF00009, htmlFile = 'PF00009.html', openURL = FALSE)
 includeHTML('./PF00009.html')
 ```
