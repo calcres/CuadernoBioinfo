@@ -12,7 +12,7 @@ language:
    section-title-references: "Bibliografía"
 format:
    html:
-      embed-resources: false
+      embed-resources: true
 ---
 
 # Preparación
@@ -300,19 +300,59 @@ kable(flatten(pfam00019[['results']][['metadata']]))
 ## Ejercicio 5
 Intenta obtener una lista de los dominios de Pfam presentes en vertebrados
 (taxon 7742). Al menos, los 20 primeros.
+
 ```{r}
-vert <- fromJSON(paste0(API,'protein/taxonomy/uniprot/87/entry/pfam/PF))
-vert[['results']][['metadata']]$name
+library(httr)
+library(jsonlite)
+
+url <- "https://www.ebi.ac.uk/interpro/api/entry/pfam/taxonomy/7742"
+
+res <- GET(
+  url,
+  add_headers(
+    "Accept" = "application/json",
+    "User-Agent" = "R"
+  )
+)
+
+txt <- content(res, as = "text", encoding = "UTF-8")
+vert <- fromJSON(txt)
+
+# Primeros 20 dominios Pfam
+vert$results$metadata$accession[1:20]
+
 ```
 
-protein/reviewed/taxonomy/uniptor/87/entry/pfam/PF
 ## Ejercicio 6
 ¿Cuántas proteínas de cocodrilos (taxon 8493) conocemos con el dominio
 *zinc finger, C2HC type* (Pfam PF01530)?
 
 ```{r}
-coco <- fromJSON(paste0(API,'protein/taxonomy/uniprot/8493/entry/pfam/PF01530)))
+coco <- fromJSON(paste0(API,'protein/taxonomy/uniprot/8493/entry/pfam/PF01530'))
 ```
+```{r}
+library(httr)
+library(jsonlite)
+
+url <- "https://www.ebi.ac.uk/interpro/api/entry/pfam/PF01530/taxonomy/8493/protein"
+
+res <- GET(
+  url,
+  add_headers(
+    "Accept" = "application/json",
+    "User-Agent" = "R"
+  )
+)
+
+txt <- content(res, as = "text", encoding = "UTF-8")
+coco <- fromJSON(txt)
+
+# Número de proteínas de cocodrilo con PF01530
+coco$count
+
+```
+No aparece, ¿podría haber cambiado la entrada en la base de datos?
+
 :::
 
 # Apéndice. Cómo juntar todas las páginas que genera la API de Interpro
