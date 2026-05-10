@@ -35,7 +35,10 @@ del género *Trypanosoma*, así como su anotación funcional, en formato
 Con "datasets" podemos descargar cosas del NCBI y con "summary" nos da un resumen de la base de datos que puede tener diferente tipo de información. Por ejemplo datasets summary genome taxon Trypanosoma nos da información sobre este taxón de forma un poco rara que puedo transformar en una tabla. Para eso sirve data format. --annotated: para mostrar datos anotados en el genoma y en formato json lines . Tsv (formato tabular) tipo genoma. Podemos decirle que quiero saber especie, año de ensamblaje, nivel del ensamblaje (nivel cromosoma, o solo de contig...etc). Podemos pedir un montón de campos de información distinta. ¿Cómo saber los campos? Con_ "dataformat  genome --help". Las flags pueden ser fields. 
 Veamos primero de qué opciones disponemos:
 
+Por algún motivo al ejecutar ese comando aparece un archivo .txt vacío. 
+
 ```{bash}
+#| eval: false
 if [ ! -e  trypanosoma_annotated.txt ]; then
    ~/bin/datasets summary genome taxon Trypanosoma --annotated --as-json-lines | \
    dataformat tsv genome --fields \
@@ -43,25 +46,40 @@ if [ ! -e  trypanosoma_annotated.txt ]; then
 fi
 ```
 
+Por ello ejecuto este en su lugar:
+
+```{bash}
+~/bin/datasets summary genome taxon 5691 --annotated --as-json-lines | \
+dataformat tsv genome --fields \
+accession,organism-name,assminfo-release-date,assminfo-level,assmstats-atgc-count,annotinfo-featcount-gene-total,assminfo-type,assminfo-status \
+> trypanosoma_annotated.txt
+```
+
 La línea larga que sigue a `--fields` especifica qué información sobre los genomas
 queremos ver en la tabla. Para saber qué campos se pueden seleccionar, puedes
 ejecutar la orden `dataformat tsv genome --help`. Veamos esa tabla en el informe
 HTML en un formato adecuado.
 
+:::{.callout-note icon=false}
+# **Advertencia**
+Dado que no he conseguido descargar el paquete "kableExtra" he decidido utilizar la recomendación de la IA para poder realizar la práctica: utilizar knitr::kable(genomas).
+:::
+
 ```{r}
 #| messages: false
 
-library('kableExtra')
 genomas <- read.table('trypanosoma_annotated.txt',
                       header = TRUE, sep = '\t')
-kable(genomas) %>% kable_styling()
+knitr::kable(genomas, align = "c")
 ```
 
 :::{.callout-note icon=false}
 ## Desafío
-1. ¿Qué diferencia hay entre las líneas 7 y 8 de la tabla anterior?
-2. Busca una función de R que te permita identificar las líneas repetidas en un
-   marco de datos.
+1. ¿Qué diferencia hay entre las líneas 7 y 8 de la tabla anterior? Se observa que son el mismo organismo. Mismo día de ensamblaje, mismo nivel de ensamblaje, anotación...etc.
+2. Busca una función de R que te permita identificar las líneas repetidas en un marco de datos. Esto se puede realizar con la función: duplicated(genomas). 
+```{r}
+duplicadas <- duplicated(genomas)
+```
 :::
 
 # Ordenar una tabla
@@ -74,7 +92,7 @@ llamada `Assembly.Release.Date`.
 # Observa que asignamos el resultado del ordenamiento al mismo objeto que
 # estamos ordenando, para guardar el resultado sin tener que generar otro objeto.
 genomas <- genomas[order(genomas$Assembly.Release.Date), ]
-kable(genomas) %>% kable_styling()
+knitr::kable(genomas, align = "c")
 ```
 
 Casualmente, la fecha estaba en formato "%Y-%m-%d", en el que el orden alfabético
@@ -88,9 +106,11 @@ genomas$Assembly.Release.Date <- as.Date(genomas$Assembly.Release.Date,
 ```
 
 Una vez convertida en "fecha", la columna "Assembly.Release.Date" puede usarse
-correctamente, por ejemplo, como eje de abscisas en una gráfica:
+correctamente, por ejemplo, como eje de abscisas en una gráfica. Para poder ejecutar el chunk utilizo la orden svg (Scalable Vector Graphics) que me permita mostrar la imagen manualmente. Definimos la imagen a partir de vectores para luego insertarla como chunk de R.
 
 ```{r}
+# Abrir dispositivo SVG manualmente
+grDevices::svg(filename = "plot_trypanosoma.svg", width = 7, height = 5)
 # Aquí usamos "cumsum()" para obtener la suma acumulada del número de bases
 # secuenciadas.
 plot(x = genomas$Assembly.Release.Date,
@@ -99,7 +119,16 @@ plot(x = genomas$Assembly.Release.Date,
      xlab = 'Fecha de publicación',
      ylab = 'Longitud total secuenciada (bp)',
      main = 'Genomas anotados de Trypanosoma')
+dev.off()
 ```
+
+```{r}
+#| echo: false
+#| out.width: "80%"
+
+knitr::include_graphics("plot_trypanosoma.svg")
+```
+
 
 # Archivos JSON y GFF
 Habiendo visto las opciones, decidimos descargar el genoma y la anotación funcional
