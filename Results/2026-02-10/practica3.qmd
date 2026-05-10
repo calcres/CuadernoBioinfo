@@ -5,6 +5,8 @@ date: today
 execute: 
   output: true
   error: true
+  cache: true
+  freeze: auto
 engine: knitr
 bibliography: ../../Documentos/references.bib
 language:
@@ -108,9 +110,34 @@ archivo a la salida estándar (no a un archivo nuevo), de donde `less -S`
 lo lee, sin modificar nada en la carpeta. ¿Sabrías contar el número de
 líneas de cada archivo? :::
 
-Necesitaremos también el genoma de referencia de
-`Bradyrhizobium japonicum`. Usaremos el de la cepa ACCC 15027 (hay
-otros).
+```{bash}
+#| eval: false
+gunzip -c DRR025089_1.fastq.gz | less -S
+```
+
+Para ver contar las secuencias que contiene este archivo fastq podemos
+realizar el siguiente comando que cuenta todas las líneas del archivo.
+
+```{bash}
+#| eval: false
+wc -l
+```
+
+Sin embargo, esta ejecución requerirá de más tiempo. Conociendo que el
+archivo fastq contiene 4 líneas: identificación (que comienza con \@),
+la secuencia, un separador (+) y la calidad de la secuencia; podemos
+contar unicamente la primera línea y multiplicar por cuatro sin
+descomprimir el archivo:
+
+```{bash}
+grep -c "^@" <(zcat DRR025089_1.fastq.gz)
+```
+
+Es decir, existen 416.462 secuencias. Implica 1.665.848 líneas en el
+archivo.
+
+::: {.callout-note icon="false"}
+## Notas sobre el apartado
 
 grep: regular expression. COn grep podemos interrogar un archivo y
 pedirle que nos muestre solo las lineas del archivo de la expresión
@@ -121,8 +148,14 @@ que aparezcan solo secuencias de principio de la linea.
 ¿Quien es wget? Es un programa de descargas que introduce mensajes, p.e
 de que la descarga va bien, número de bites descargados...etc. Todo esto
 son mensajes que no nos interesa tener en nuestra práctica.
+:::
+
+Necesitaremos también el genoma de referencia de
+`Bradyrhizobium japonicum`. Usaremos el de la cepa ACCC 15027 (hay
+otros).
 
 ```{bash}
+#| eval: false
 # Con la opción "-o /dev/null" nos deshacemos de los mensajes,
 # y con "-O referencia.fa" escogemos un nombre adecuado para el archivo.
 if [ ! -e referencia.fa ]; then
@@ -135,15 +168,34 @@ fi
 ## Preguntas
 
 -   ¿Crees que deberíamos guardar los archivos descargados en
-    `../../data`?
+    `../../data`? Sí, ya que lo que estamos haciendo es descargar, si no
+    existe previamente, un genoma de referencia de ENA. Esto son datos y
+    no resultados que aparecen al ejecutar nuestro .qmd.
+
 -   ¿Cómo podrías guardar los mensajes de `wget` en un archivo?
+    Podríamos realizarlo creando un archivo "descarga.log":
+
+```{bash}
+#| eval: false
+wget -o descarga.log -O ../../data/referencia.fa \
+     https://www.ebi.ac.uk/ena/browser/api/fasta/GCA_042137995.2
+```
+
 -   ¿De cuántas secuencias diferentes se compone este genoma de
     referencia?
+Utilizaremos también grep -c y en este caso contaremos las secuencias, contando las líneas que comienzan por ">":
+
+```{bash}
+#| eval: false
+grep -c "^>" ../../data/referencia.fa
+```
+    
 :::
 
 # Control de calidad
 
 ```{bash}
+#| eval: false
 if [ ! -e fastp.html ]; then
    # Si "fastp" está en la carpeta actual y  no en el PATH, escribe "./fastp"
    # en lugar de "fastp".
@@ -190,6 +242,7 @@ generarlos de nuevo cada vez que compilemos este documento si el archivo
 final ya está presente en la carpeta de trabajo.
 
 ```{bash}
+#| eval: false
 if [ ! -e DRR025089.bam ]; then
    if [ ! -e DRR025089_unsorted.bam ]; then
       if [ ! -e DRR025089.sam ]; then
@@ -241,6 +294,7 @@ Antes de proseguir, es importante comprobar el resultado del paso
 anterior. Podemos extraer algunas estadísticas del archivo BAM así:
 
 ```{bash}
+#| eval: false
 if [ ! -e DRR025089.stats.txt ]; then
    samtools stats DRR025089.bam > DRR025089.stats.txt
 fi
@@ -255,6 +309,7 @@ Ahora podemos importar los datos de cobertura a una sesión de R y
 representarlos gráficamente:
 
 ```{r}
+#| eval: false
 COV <- read.table('COV.txt',
                   col.names = c('intervalo', 'cobertura', 'bases'))
 plot(COV$cobertura, COV$bases, type = 'l')
@@ -279,6 +334,7 @@ samtools tview DRR025089.bam referencia.fa
 # Identificación de variantes
 
 ```{bash}
+#| eval: false
 if [ ! -e DRR025089.vcf ]; then
    freebayes -p 1 -f referencia.fa DRR025089.bam > DRR025089.vcf
 fi
