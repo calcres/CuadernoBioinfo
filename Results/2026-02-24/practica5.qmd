@@ -144,6 +144,7 @@ curl_download(
   destfile = 'z1.txt')
 ```
 En este último bloque estamos estableciendo los 5 requerimientos de búsqueda avanzada. Si nos fijamos en "query" le hemos pedido que se refiera a un taxón concreto y que muestre genoma completo.Vemos como curl_dowload lo guarda en formato texto. 
+
 ```{r}
 portal <- 'https://www.ebi.ac.uk/ena/portal/api/search?'
 result <- 'result=assembly&'
@@ -151,8 +152,10 @@ query  <- 'query=tax_tree(6157) AND genome_representation="full"&'
 fields <- 'fields=version,tax_id,scientific_name,last_updated,base_count&'
 limit  <- 'limit=0'
 URL1 <- paste0(portal, result, query, fields, limit)
-curl_download(URLencode(URL), destfile = 'z2.txt')
+curl_download(URLencode(), destfile = 'z2.txt')
 ```
+En este caso vemos que el objeto URL no es capaz de identificarlo. No hemos añadido una dirección válida. 
+:::
 
 Imaginemos que nos pide buscar secuencias relacionadas con la ADH. Podríamos hacer la búsqueda en ENA y al final del resultado podemos pedir que muestre esta búsqueda en un formato parecido a este. Podemos ver qué tipo de resultado era, filtros utilizados...etc. En el grupo anterior no se han encontrado "codig" de ADH en Drosophila. 
 
@@ -182,8 +185,6 @@ adh <- read.table('z3.txt',sep='\t', quote="")
 ```{r}
 adh <- read.table('z3.txt',sep='\t',header=TRUE)
 ```
-
-:::
 
 :::{.callout-note icon=false}
 ## Ejercicio 2
